@@ -266,7 +266,9 @@ def get_object_pixel_center(detection):
 def get_mask_orientation(detection):
     """Get object orientation angle from mask using PCA.
     
-    Returns angle in radians for EE yaw rotation to align gripper with object's long axis.
+    Returns angle in radians for EE yaw rotation to align gripper PERPENDICULAR 
+    to object's long axis (for grasping across the object).
+    Clamped to ±90° to avoid joint limits.
     Returns 0 if no mask or can't compute.
     """
     if detection.mask is None:
@@ -292,10 +294,21 @@ def get_mask_orientation(detection):
     # Principal axis angle (eigenvector of largest eigenvalue)
     theta = 0.5 * np.arctan2(2 * cov_xy, cov_xx - cov_yy)
     
-    # The angle is in image coordinates, need to convert for EE yaw
-    # Image +X is right, +Y is down. For EE yaw, we want rotation about Z.
-    # Return negative because image Y is flipped
-    return -theta
+    # Add 90° to get perpendicular (gripper grabs across, not along)
+    theta_perp = theta + math.pi / 2
+    
+    # Normalize to [-pi, pi]
+    while theta_perp > math.pi:
+        theta_perp -= 2 * math.pi
+    while theta_perp < -math.pi:
+        theta_perp += 2 * math.pi
+    
+    # Clamp to ±90° to stay within joint limits
+    max_angle = math.pi / 2
+    theta_perp = max(-max_angle, min(max_angle, theta_perp))
+    
+    # Negate for image-to-EE coordinate conversion
+    return -theta_perp
 
 
 def get_servo_target_pixel(image_shape, ee_z: float):
