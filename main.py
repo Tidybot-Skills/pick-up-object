@@ -316,10 +316,10 @@ def servo_descend(target: str = TARGET_OBJECT):
         ee_x, ee_y, ee_z = sensors.get_ee_position()
         use_ee_frame = ee_z < EE_FRAME_Z_THRESHOLD
         
-        # Point straight down when entering EE frame phase
-        if use_ee_frame and not pointed_down:
-            point_straight_down()
-            pointed_down = True
+        # Skip orientation change - can hit joint limits at workspace edges
+        # if use_ee_frame and not pointed_down:
+        #     point_straight_down()
+        #     pointed_down = True
 
         # Detect object
         det, shape = detect_object_2d(target)
