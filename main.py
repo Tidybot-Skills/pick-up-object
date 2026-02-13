@@ -89,6 +89,7 @@ GRASP_SPEED = 200
 J7_ROTATION_GAIN = 0.3        # Fraction of PCA error to correct per step (reduced for stability)
 J7_MIN_CORRECTION_RAD = 0.03  # ~2° deadband
 J7_MAX_CORRECTION_RAD = 0.15  # ~8.5° max per step (reduced from 17°)
+J7_PCA_DEADZONE_DEG = 20      # Don't correct if PCA within this many degrees of ±90°
 
 
 # ============================================================================
@@ -350,6 +351,7 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     """Compute joint 7 correction to make banana appear HORIZONTAL in wrist camera.
     
     Goal: Rotate J7 until PCA = 0° or 180° (banana's long axis horizontal in image).
+    Has a deadzone near ±90° to prevent oscillation.
     
     Returns: (correction_rad, debug_info) where debug_info is a string.
     """
@@ -359,6 +361,12 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     
     pca_deg = math.degrees(pca_angle)
     j7_deg = math.degrees(current_j7)
+    
+    # Deadzone: if PCA is within J7_PCA_DEADZONE_DEG of ±90°, don't correct
+    # This prevents oscillation at the vertical position
+    dist_to_90 = min(abs(pca_deg - 90), abs(pca_deg + 90))
+    if dist_to_90 < J7_PCA_DEADZONE_DEG:
+        return 0.0, f"pca={pca_deg:.0f}° (near ±90° deadzone)"
     
     # Target: PCA = 0° (banana horizontal in image)
     DESIRED_PCA = 0.0
