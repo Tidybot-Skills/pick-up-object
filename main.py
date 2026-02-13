@@ -347,10 +347,9 @@ def get_pca_angle_raw(detection):
 
 
 def compute_j7_correction(detection, current_j7: float) -> tuple:
-    """Compute joint 7 correction to make banana appear VERTICAL in wrist camera.
+    """Compute joint 7 correction to make banana appear HORIZONTAL in wrist camera.
     
-    Goal: Rotate J7 until PCA = ±90° (banana's long axis vertical in image).
-    Since PCA tracks J7 roughly 1:1, error = desired_pca - current_pca.
+    Goal: Rotate J7 until PCA = 0° or 180° (banana's long axis horizontal in image).
     
     Returns: (correction_rad, debug_info) where debug_info is a string.
     """
@@ -361,11 +360,10 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     pca_deg = math.degrees(pca_angle)
     j7_deg = math.degrees(current_j7)
     
-    # Target: PCA = 90° (banana vertical in image)
-    # Since PCA tracks J7 ~1:1, we need to rotate by (90° - current_pca)
-    DESIRED_PCA = math.pi / 2  # 90° = vertical
+    # Target: PCA = 0° (banana horizontal in image)
+    DESIRED_PCA = 0.0
     
-    # Error: how much to rotate J7 to make banana vertical
+    # Error to reach 0°
     error = DESIRED_PCA - pca_angle
     
     # Normalize error to [-pi, pi]
@@ -374,9 +372,8 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     while error < -math.pi:
         error += 2 * math.pi
     
-    # Check if -90° (also vertical) is closer
-    # error_alt would drive to PCA = -90°
-    error_alt = -DESIRED_PCA - pca_angle
+    # 180° is equivalent to 0° for grasping, check if it's closer
+    error_alt = math.pi - pca_angle
     while error_alt > math.pi:
         error_alt -= 2 * math.pi
     while error_alt < -math.pi:
@@ -384,9 +381,9 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     
     if abs(error_alt) < abs(error):
         error = error_alt
-        desired_deg = -90
+        desired_deg = 180
     else:
-        desired_deg = 90
+        desired_deg = 0
     
     error_deg = math.degrees(error)
     
