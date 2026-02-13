@@ -9,8 +9,8 @@ Dependencies: none
 
 1. **Mask Centroid Tracking**: Uses YOLO segmentation masks for accurate centering
 2. **Two-Phase Servoing**:
-   - **Base frame** (Z > -0.35m): target = image center
-   - **EE frame** (Z < -0.35m): target = gripper offset, EE points straight down
+   - **Base frame** (Z > -0.25m): target = image center
+   - **EE frame** (Z ≤ -0.25m): target = gripper offset, EE points straight down, one-time alignment rotation
 3. **Search on Detection Miss**: 
    - Sweeps ±5cm in X and Y
    - Rotates ±30° 
@@ -33,6 +33,14 @@ success = pick_up_object("banana")
 success = pick_up_object("apple")
 ```
 
+## Z Thresholds
+
+| Threshold | Value | Description |
+|-----------|-------|-------------|
+| `OFFSET_START_Z` | 0.0m | Start ramping gripper pixel offset |
+| `OFFSET_END_Z` | -0.25m | Full gripper offset (100%) |
+| `EE_FRAME_Z_THRESHOLD` | -0.25m | Switch to EE frame + one-time alignment |
+
 ## Configuration
 
 | Parameter | Default | Description |
@@ -41,7 +49,6 @@ success = pick_up_object("apple")
 | `SEARCH_XY_STEP_M` | 0.05m | XY sweep distance |
 | `SEARCH_WIGGLE_ANGLE_DEG` | 30° | Rotation search angle |
 | `MAX_SEARCH_FAILURES` | 3 | Consecutive failures before abort |
-| `EE_FRAME_Z_THRESHOLD` | -0.35m | Switch to EE frame below this Z |
 | `GRIPPER_V_OFFSET` | -120px | Gripper target offset (EE frame only) |
 
 ## Requirements
