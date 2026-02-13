@@ -50,8 +50,8 @@ GRIPPER_U_OFFSET = 0.0
 GRIPPER_V_OFFSET = -120  # pixels
 
 # --- Gradual gripper offset transition ---
-OFFSET_START_Z = -0.2   # Start applying gripper offset
-OFFSET_END_Z = -0.4     # Full offset applied
+OFFSET_START_Z = 0.0    # Start applying gripper offset
+OFFSET_END_Z = -0.25    # Full offset applied
 
 # --- Servoing loop parameters ---
 PIXEL_TOLERANCE = 30
@@ -358,7 +358,7 @@ def servo_descend(target: str = TARGET_OBJECT):
 
         # Compute pixel error
         obj_u, obj_v = get_object_pixel_center(det)
-        cx, cy = get_servo_target_pixel(shape, use_ee_frame)
+        cx, cy = get_servo_target_pixel(shape, ee_z)
         u_err = obj_u - cx
         v_err = obj_v - cy
         error_mag = np.sqrt(u_err**2 + v_err**2)
