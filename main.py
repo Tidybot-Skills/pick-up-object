@@ -8,7 +8,7 @@ Workflow:
   1. Detect target with YOLO 2D (with mask) → get pixel center
   2. Servo-descend loop: at every step, detect → correct lateral error AND
      descend a small increment. Keeps object centered throughout approach.
-  3. On detection miss: wiggle last joint ±30° to search for object
+  3. On detection miss: wiggle last joint ±30° AND sweep XY ±5cm to search
   4. Grasp after descending to floor contact
   5. Lift and return home
 
@@ -66,6 +66,7 @@ GAIN_V_TO_DZ = 0.0      # v_err → dz (usually 0 for downward-looking camera)
 # not at the image center. These offsets shift the servo target point
 # so the object ends up between the gripper fingers.
 # Negative GRIPPER_V_OFFSET = target is above image center (toward top of frame).
+# NOTE: Only used in EE frame phase. Base frame phase uses image center.
 GRIPPER_U_OFFSET = 0.0     # Horizontal offset in pixels (0 = centered)
 GRIPPER_V_OFFSET = -120    # Vertical offset in pixels (negative = upper portion)
 
@@ -77,10 +78,11 @@ MIN_LATERAL_STEP_M = 0.001 # Ignore lateral steps smaller than this (meters)
 SERVO_MOVE_DURATION = 0.5  # Duration for each small move (seconds)
 
 # --- Search wiggle parameters ---
-# When detection fails, rotate last joint to search for object
+# When detection fails, rotate last joint AND sweep XY to search for object
 SEARCH_WIGGLE_ANGLE_DEG = 30  # Degrees to rotate in each direction
+SEARCH_XY_STEP_M = 0.05       # Meters to sweep in X and Y (±5cm)
 SEARCH_WIGGLE_DURATION = 0.4  # Duration for wiggle move (seconds)
-MAX_SEARCH_FAILURES = 10      # Max consecutive search failures before giving up
+MAX_SEARCH_FAILURES = 3       # Max consecutive search failures before giving up
 
 # --- Descent parameters ---
 # No fixed floor height — descend until ArmError (convergence timeout),
@@ -133,14 +135,98 @@ def detect_object_2d(target: str, confidence: float = DETECTION_CONFIDENCE):
     return best, result.image_shape
 
 
+def search_xy_sweep(target: str, axis: str):
+    """Sweep ±5cm in X or Y direction looking for object.
+    
+    Args:
+        target: YOLO prompt
+        axis: 'x' or 'y'
+    
+    Returns:
+        (Detection, image_shape) or (None, None) if not found.
+    """
+    step = SEARCH_XY_STEP_M
+    
+    # Move +5cm
+    if axis == 'x':
+        arm.move_delta(dx=step, frame="base", duration=SEARCH_WIGGLE_DURATION)
+    else:
+        arm.move_delta(dy=step, frame="base", duration=SEARCH_WIGGLE_DURATION)
+    time.sleep(0.2)
+    
+    det, shape = detect_object_2d(target)
+    if det is not None:
+        print(f"      Found at +{step*100:.0f}cm {axis.upper()}")
+        # Move back to center
+        if axis == 'x':
+            arm.move_delta(dx=-step, frame="base", duration=SEARCH_WIGGLE_DURATION)
+        else:
+            arm.move_delta(dy=-step, frame="base", duration=SEARCH_WIGGLE_DURATION)
+        return det, shape
+    
+    # Move -10cm (to -5cm from original)
+    if axis == 'x':
+        arm.move_delta(dx=-2*step, frame="base", duration=SEARCH_WIGGLE_DURATION * 1.5)
+    else:
+        arm.move_delta(dy=-2*step, frame="base", duration=SEARCH_WIGGLE_DURATION * 1.5)
+    time.sleep(0.2)
+    
+    det, shape = detect_object_2d(target)
+    if det is not None:
+        print(f"      Found at -{step*100:.0f}cm {axis.upper()}")
+        # Move back to center
+        if axis == 'x':
+            arm.move_delta(dx=step, frame="base", duration=SEARCH_WIGGLE_DURATION)
+        else:
+            arm.move_delta(dy=step, frame="base", duration=SEARCH_WIGGLE_DURATION)
+        return det, shape
+    
+    # Move back to center
+    if axis == 'x':
+        arm.move_delta(dx=step, frame="base", duration=SEARCH_WIGGLE_DURATION)
+    else:
+        arm.move_delta(dy=step, frame="base", duration=SEARCH_WIGGLE_DURATION)
+    
+    return None, None
+
+
+def search_at_current_rotation(target: str):
+    """Search for object at current rotation by sweeping XY.
+    
+    Returns:
+        (Detection, image_shape) or (None, None) if not found.
+    """
+    # First check current position
+    det, shape = detect_object_2d(target)
+    if det is not None:
+        return det, shape
+    
+    # Sweep X
+    print(f"      Sweeping X ±{SEARCH_XY_STEP_M*100:.0f}cm...")
+    det, shape = search_xy_sweep(target, 'x')
+    if det is not None:
+        return det, shape
+    
+    # Sweep Y
+    print(f"      Sweeping Y ±{SEARCH_XY_STEP_M*100:.0f}cm...")
+    det, shape = search_xy_sweep(target, 'y')
+    if det is not None:
+        return det, shape
+    
+    return None, None
+
+
 def search_wiggle(target: str):
-    """Search for object by rotating last joint ±SEARCH_WIGGLE_ANGLE_DEG.
+    """Search for object by rotating last joint ±30° and sweeping XY at each angle.
+    
+    At each rotation angle (+30°, center, -30°), also sweeps ±5cm in X and Y.
     
     If detection fails at current position:
-      1. Rotate +30° and check
-      2. If still no detection, rotate -60° (to -30° from original) and check
-      3. If detection found, descend one step
-      4. Return to original position
+      1. At center: sweep XY
+      2. Rotate +30°, sweep XY
+      3. Rotate -60° (to -30°), sweep XY
+      4. If detection found, descend one step
+      5. Return to original position
     
     Returns:
         (Detection, image_shape, found_at_wiggle) or (None, None, False) if not found.
@@ -148,12 +234,19 @@ def search_wiggle(target: str):
     """
     wiggle_rad = math.radians(SEARCH_WIGGLE_ANGLE_DEG)
     
-    # Try +30°
+    # Try center position first with XY sweep
+    print(f"    Wiggle search: checking center with XY sweep...")
+    det, shape = search_at_current_rotation(target)
+    if det is not None:
+        print(f"    Found object at center")
+        return det, shape, False
+    
+    # Try +30° with XY sweep
     print(f"    Wiggle search: rotating +{SEARCH_WIGGLE_ANGLE_DEG}°...")
     arm.move_delta(dyaw=wiggle_rad, frame="ee", duration=SEARCH_WIGGLE_DURATION)
     time.sleep(0.2)
     
-    det, shape = detect_object_2d(target)
+    det, shape = search_at_current_rotation(target)
     if det is not None:
         print(f"    Found object at +{SEARCH_WIGGLE_ANGLE_DEG}° position")
         # Descend a step while we can see it
@@ -167,12 +260,12 @@ def search_wiggle(target: str):
         time.sleep(0.2)
         return det, shape, True
     
-    # Try -60° (to get to -30° from original)
+    # Try -60° (to get to -30° from original) with XY sweep
     print(f"    Wiggle search: rotating -{SEARCH_WIGGLE_ANGLE_DEG * 2}° (to -{SEARCH_WIGGLE_ANGLE_DEG}°)...")
     arm.move_delta(dyaw=-2*wiggle_rad, frame="ee", duration=SEARCH_WIGGLE_DURATION * 1.5)
     time.sleep(0.2)
     
-    det, shape = detect_object_2d(target)
+    det, shape = search_at_current_rotation(target)
     if det is not None:
         print(f"    Found object at -{SEARCH_WIGGLE_ANGLE_DEG}° position")
         # Descend a step while we can see it
@@ -271,14 +364,19 @@ def image_angle_to_ee_yaw(angle_image):
     return yaw
 
 
-def get_gripper_target_pixel(image_shape):
-    """Return (tx, ty) — the pixel where the object should be to align with the gripper.
-
-    This is the image center plus the gripper offset, so the object
-    ends up between the gripper fingers rather than at the camera center.
+def get_servo_target_pixel(image_shape, use_ee_frame: bool):
+    """Return (tx, ty) — the pixel target for servoing.
+    
+    - Base frame phase: target = image center (no offset)
+    - EE frame phase: target = gripper offset (compensate for camera-gripper offset)
     """
     h, w = image_shape[0], image_shape[1]
-    return w / 2.0 + GRIPPER_U_OFFSET, h / 2.0 + GRIPPER_V_OFFSET
+    if use_ee_frame:
+        # EE frame: use gripper offset
+        return w / 2.0 + GRIPPER_U_OFFSET, h / 2.0 + GRIPPER_V_OFFSET
+    else:
+        # Base frame: use image center
+        return w / 2.0, h / 2.0
 
 
 def pixel_error_to_ee_delta(u_err, v_err):
@@ -396,11 +494,11 @@ def servo_descend(target: str = TARGET_OBJECT):
     timeout = floor contact).
 
     Two phases:
-      - Above EE_FRAME_Z_THRESHOLD: base frame servoing (coarse approach)
-      - Below EE_FRAME_Z_THRESHOLD: EE frame servoing with yaw alignment
+      - Above EE_FRAME_Z_THRESHOLD: base frame servoing, target = image center
+      - Below EE_FRAME_Z_THRESHOLD: EE frame servoing, target = gripper offset
 
     On detection miss:
-      - Wiggle last joint ±30° to search for object
+      - Wiggle last joint ±30° AND sweep XY ±5cm to search for object
       - If found during wiggle, descend a step and continue
       - Only abort after MAX_SEARCH_FAILURES consecutive failed searches
 
@@ -414,7 +512,8 @@ def servo_descend(target: str = TARGET_OBJECT):
     print(f"\n--- Servo-Descend: approaching '{target}' ---")
     print(f"  Current EE Z: {ee_z:.3f}m, descend step: {DESCEND_STEP_M*1000:.0f}mm")
     print(f"  EE frame switch at Z < {EE_FRAME_Z_THRESHOLD}m")
-    print(f"  Search wiggle: ±{SEARCH_WIGGLE_ANGLE_DEG}° on detection miss")
+    print(f"  Search: ±{SEARCH_WIGGLE_ANGLE_DEG}° rotation + ±{SEARCH_XY_STEP_M*100:.0f}cm XY sweep")
+    print(f"  Max search failures: {MAX_SEARCH_FAILURES}")
     display.show_text(f"Approaching {target}...")
     display.show_face("thinking")
 
@@ -448,13 +547,14 @@ def servo_descend(target: str = TARGET_OBJECT):
             consecutive_search_failures = 0
 
         # Compute pixel error using mask centroid
+        # Target depends on phase: image center (base) or gripper offset (EE)
         obj_u, obj_v = get_object_pixel_center(det)
-        cx, cy = get_gripper_target_pixel(shape)
+        cx, cy = get_servo_target_pixel(shape, use_ee_frame)
         u_err = obj_u - cx
         v_err = obj_v - cy
         error_mag = np.sqrt(u_err**2 + v_err**2)
 
-        # Compute orientation if mask available
+        # Compute orientation if mask available (only in EE frame)
         dyaw = 0.0
         orientation_str = ""
         if use_ee_frame and det.mask is not None:
@@ -469,8 +569,9 @@ def servo_descend(target: str = TARGET_OBJECT):
         has_mask = det.mask is not None
         src = "mask" if has_mask else "bbox"
         frame_str = "EE" if use_ee_frame else "BASE"
+        target_str = "gripper" if use_ee_frame else "center"
         print(f"  Iter {i+1}: pixel err=({u_err:.0f},{v_err:.0f}) "
-              f"|{error_mag:.0f}px| [{src}] [{frame_str}], "
+              f"|{error_mag:.0f}px| [{src}] [{frame_str}→{target_str}], "
               f"EE Z={ee_z:.3f}m{orientation_str}")
 
         # Compute lateral correction based on current frame
