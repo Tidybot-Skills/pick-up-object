@@ -49,6 +49,10 @@ GAIN_V_TO_DZ = 0.0
 GRIPPER_U_OFFSET = 0.0
 GRIPPER_V_OFFSET = -120  # pixels
 
+# --- Gradual gripper offset transition ---
+OFFSET_START_Z = -0.2   # Start applying gripper offset
+OFFSET_END_Z = -0.4     # Full offset applied
+
 # --- Servoing loop parameters ---
 PIXEL_TOLERANCE = 30
 MAX_SERVO_ITERATIONS = 200
@@ -259,17 +263,26 @@ def get_object_pixel_center(detection):
     return (x1 + x2) / 2.0, (y1 + y2) / 2.0
 
 
-def get_servo_target_pixel(image_shape, use_ee_frame: bool):
-    """Return servo target pixel.
+def get_servo_target_pixel(image_shape, ee_z: float):
+    """Return servo target pixel with gradual gripper offset.
     
-    - Base frame: image center
-    - EE frame: gripper offset
+    Offset interpolates linearly from 0% at OFFSET_START_Z to 100% at OFFSET_END_Z.
+    This prevents abrupt target jumps when transitioning to EE frame.
     """
     h, w = image_shape[0], image_shape[1]
-    if use_ee_frame:
-        return w / 2.0 + GRIPPER_U_OFFSET, h / 2.0 + GRIPPER_V_OFFSET
+    
+    # Compute offset ratio (0 to 1) based on Z height
+    if ee_z >= OFFSET_START_Z:
+        ratio = 0.0
+    elif ee_z <= OFFSET_END_Z:
+        ratio = 1.0
     else:
-        return w / 2.0, h / 2.0
+        ratio = (OFFSET_START_Z - ee_z) / (OFFSET_START_Z - OFFSET_END_Z)
+    
+    u_offset = GRIPPER_U_OFFSET * ratio
+    v_offset = GRIPPER_V_OFFSET * ratio
+    
+    return w / 2.0 + u_offset, h / 2.0 + v_offset
 
 
 def pixel_error_to_ee_delta(u_err, v_err):
