@@ -347,7 +347,10 @@ def get_pca_angle_raw(detection):
 
 
 def compute_j7_correction(detection, current_j7: float) -> tuple:
-    """Compute joint 7 correction to align gripper perpendicular to object's long axis.
+    """Compute joint 7 correction to make banana appear VERTICAL in wrist camera.
+    
+    Goal: Rotate J7 until PCA = ±90° (banana's long axis vertical in image).
+    Since PCA tracks J7 roughly 1:1, error = desired_pca - current_pca.
     
     Returns: (correction_rad, debug_info) where debug_info is a string.
     """
@@ -358,18 +361,12 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     pca_deg = math.degrees(pca_angle)
     j7_deg = math.degrees(current_j7)
     
-    # Target: gripper aligned with object's long axis (banana vertical in image)
-    # PCA gives the long axis angle; we want J7 to match it
-    target = pca_angle
+    # Target: PCA = 90° (banana vertical in image)
+    # Since PCA tracks J7 ~1:1, we need to rotate by (90° - current_pca)
+    DESIRED_PCA = math.pi / 2  # 90° = vertical
     
-    # Normalize target to [-pi, pi]
-    while target > math.pi:
-        target -= 2 * math.pi
-    while target < -math.pi:
-        target += 2 * math.pi
-    
-    # Error: how far J7 is from target
-    error = target - current_j7
+    # Error: how much to rotate J7 to make banana vertical
+    error = DESIRED_PCA - pca_angle
     
     # Normalize error to [-pi, pi]
     while error > math.pi:
@@ -377,13 +374,20 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     while error < -math.pi:
         error += 2 * math.pi
     
-    # Check if opposite direction (target ± 180°) is closer
-    # Both orientations are equivalent for grasping
-    error_alt = error - math.pi if error > 0 else error + math.pi
+    # Check if -90° (also vertical) is closer
+    # error_alt would drive to PCA = -90°
+    error_alt = -DESIRED_PCA - pca_angle
+    while error_alt > math.pi:
+        error_alt -= 2 * math.pi
+    while error_alt < -math.pi:
+        error_alt += 2 * math.pi
+    
     if abs(error_alt) < abs(error):
         error = error_alt
+        desired_deg = -90
+    else:
+        desired_deg = 90
     
-    target_deg = math.degrees(target)
     error_deg = math.degrees(error)
     
     # Apply gain
@@ -391,13 +395,13 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     
     # Deadband
     if abs(correction) < J7_MIN_CORRECTION_RAD:
-        return 0.0, f"pca={pca_deg:.0f}° tgt={target_deg:.0f}° j7={j7_deg:.0f}° err={error_deg:.0f}° (deadband)"
+        return 0.0, f"pca={pca_deg:.0f}° want={desired_deg}° err={error_deg:.0f}° (deadband)"
     
     # Clamp max correction per step
     correction = max(-J7_MAX_CORRECTION_RAD, min(J7_MAX_CORRECTION_RAD, correction))
     
     corr_deg = math.degrees(correction)
-    return correction, f"pca={pca_deg:.0f}° tgt={target_deg:.0f}° j7={j7_deg:.0f}° err={error_deg:.0f}° corr={corr_deg:+.0f}°"
+    return correction, f"pca={pca_deg:.0f}° want={desired_deg}° err={error_deg:.0f}° corr={corr_deg:+.0f}°"
 
 
 def get_servo_target_pixel(image_shape, ee_z: float):
