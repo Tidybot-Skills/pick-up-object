@@ -8,14 +8,15 @@ Workflow:
   1. Detect target with YOLO 2D (with mask) → get pixel center
   2. Servo-descend loop: at every step, detect → correct lateral error AND
      descend a small increment. Keeps object centered throughout approach.
-  3. Grasp after descending the configured total distance
-  4. Lift
+  3. On detection miss: wiggle last joint ±30° to search for object
+  4. Grasp after descending to floor contact
+  5. Lift and return home
 
 Usage (submit via code execution API):
   curl -X POST localhost:8080/code/execute \
     -H "X-Lease-Id: <lease>" \
     -H "Content-Type: application/json" \
-    -d '{"code": "exec(open(\"/home/tidybot/tidybot_army/pick_obj/pick_with_visual_servoing.py\").read())"}'
+    -d '{"code": "exec(open(\"pick_up_object.py\").read())"}'
 
 Note:
   The camera-to-EE frame mapping depends on how the camera is mounted.
@@ -27,6 +28,7 @@ from robot_sdk import arm, gripper, sensors, yolo, display
 from robot_sdk.arm import ArmError
 import numpy as np
 import time
+import math
 
 # ============================================================================
 # Configuration — tune these for your setup
@@ -74,6 +76,12 @@ MAX_LATERAL_STEP_M = 0.05  # Clamp each lateral EE step (meters)
 MIN_LATERAL_STEP_M = 0.001 # Ignore lateral steps smaller than this (meters)
 SERVO_MOVE_DURATION = 0.5  # Duration for each small move (seconds)
 
+# --- Search wiggle parameters ---
+# When detection fails, rotate last joint to search for object
+SEARCH_WIGGLE_ANGLE_DEG = 30  # Degrees to rotate in each direction
+SEARCH_WIGGLE_DURATION = 0.4  # Duration for wiggle move (seconds)
+MAX_SEARCH_FAILURES = 10      # Max consecutive search failures before giving up
+
 # --- Descent parameters ---
 # No fixed floor height — descend until ArmError (convergence timeout),
 # which means the arm hit the floor and can't reach the commanded position.
@@ -95,7 +103,6 @@ EE_MIN_ELONGATION = 2.0       # Only rotate if elongation ratio exceeds this
 LIFT_TARGET_Z = 0.05       # Absolute Z to lift to after grasping (above 0.0 in arm base frame)
 GRASP_FORCE = 50           # Gripper grasp force (0-255)
 GRASP_SPEED = 200          # Gripper grasp speed (0-255)
-LOST_OBJECT_RETRIES = 3    # Consecutive detection misses before aborting
 
 
 # ============================================================================
@@ -124,6 +131,67 @@ def detect_object_2d(target: str, confidence: float = DETECTION_CONFIDENCE):
     best = max(detections, key=lambda d: d.area if d.area > 0 else
                (d.bbox[2] - d.bbox[0]) * (d.bbox[3] - d.bbox[1]))
     return best, result.image_shape
+
+
+def search_wiggle(target: str):
+    """Search for object by rotating last joint ±SEARCH_WIGGLE_ANGLE_DEG.
+    
+    If detection fails at current position:
+      1. Rotate +30° and check
+      2. If still no detection, rotate -60° (to -30° from original) and check
+      3. If detection found, descend one step
+      4. Return to original position
+    
+    Returns:
+        (Detection, image_shape, found_at_wiggle) or (None, None, False) if not found.
+        found_at_wiggle: True if object was found during wiggle search.
+    """
+    wiggle_rad = math.radians(SEARCH_WIGGLE_ANGLE_DEG)
+    
+    # Try +30°
+    print(f"    Wiggle search: rotating +{SEARCH_WIGGLE_ANGLE_DEG}°...")
+    arm.move_delta(dyaw=wiggle_rad, frame="ee", duration=SEARCH_WIGGLE_DURATION)
+    time.sleep(0.2)
+    
+    det, shape = detect_object_2d(target)
+    if det is not None:
+        print(f"    Found object at +{SEARCH_WIGGLE_ANGLE_DEG}° position")
+        # Descend a step while we can see it
+        print(f"    Descending {DESCEND_STEP_M*1000:.0f}mm...")
+        try:
+            arm.move_delta(dz=-DESCEND_STEP_M, frame="base", duration=SERVO_MOVE_DURATION)
+        except ArmError:
+            pass  # Floor contact, that's fine
+        # Return to original position
+        arm.move_delta(dyaw=-wiggle_rad, frame="ee", duration=SEARCH_WIGGLE_DURATION)
+        time.sleep(0.2)
+        return det, shape, True
+    
+    # Try -60° (to get to -30° from original)
+    print(f"    Wiggle search: rotating -{SEARCH_WIGGLE_ANGLE_DEG * 2}° (to -{SEARCH_WIGGLE_ANGLE_DEG}°)...")
+    arm.move_delta(dyaw=-2*wiggle_rad, frame="ee", duration=SEARCH_WIGGLE_DURATION * 1.5)
+    time.sleep(0.2)
+    
+    det, shape = detect_object_2d(target)
+    if det is not None:
+        print(f"    Found object at -{SEARCH_WIGGLE_ANGLE_DEG}° position")
+        # Descend a step while we can see it
+        print(f"    Descending {DESCEND_STEP_M*1000:.0f}mm...")
+        try:
+            arm.move_delta(dz=-DESCEND_STEP_M, frame="base", duration=SERVO_MOVE_DURATION)
+        except ArmError:
+            pass  # Floor contact, that's fine
+        # Return to original position
+        arm.move_delta(dyaw=wiggle_rad, frame="ee", duration=SEARCH_WIGGLE_DURATION)
+        time.sleep(0.2)
+        return det, shape, True
+    
+    # Not found, return to original
+    print(f"    Object not found in wiggle search, returning to center...")
+    arm.move_delta(dyaw=wiggle_rad, frame="ee", duration=SEARCH_WIGGLE_DURATION)
+    time.sleep(0.2)
+    
+    return None, None, False
 
 
 def get_object_pixel_center(detection):
@@ -331,19 +399,24 @@ def servo_descend(target: str = TARGET_OBJECT):
       - Above EE_FRAME_Z_THRESHOLD: base frame servoing (coarse approach)
       - Below EE_FRAME_Z_THRESHOLD: EE frame servoing with yaw alignment
 
+    On detection miss:
+      - Wiggle last joint ±30° to search for object
+      - If found during wiggle, descend a step and continue
+      - Only abort after MAX_SEARCH_FAILURES consecutive failed searches
+
     Returns:
-        True if floor contact detected. False if lost object.
+        True if floor contact detected. False if lost object after all retries.
     """
     ee_x, ee_y, ee_z = sensors.get_ee_position()
     accumulated_yaw = 0.0  # Track total yaw applied for logging
+    consecutive_search_failures = 0
 
     print(f"\n--- Servo-Descend: approaching '{target}' ---")
     print(f"  Current EE Z: {ee_z:.3f}m, descend step: {DESCEND_STEP_M*1000:.0f}mm")
     print(f"  EE frame switch at Z < {EE_FRAME_Z_THRESHOLD}m")
+    print(f"  Search wiggle: ±{SEARCH_WIGGLE_ANGLE_DEG}° on detection miss")
     display.show_text(f"Approaching {target}...")
     display.show_face("thinking")
-
-    consecutive_misses = 0
 
     for i in range(MAX_SERVO_ITERATIONS):
         ee_x, ee_y, ee_z = sensors.get_ee_position()
@@ -353,15 +426,26 @@ def servo_descend(target: str = TARGET_OBJECT):
         det, shape = detect_object_2d(target)
 
         if det is None:
-            consecutive_misses += 1
-            print(f"  Iter {i+1}: object not detected "
-                  f"({consecutive_misses}/{LOST_OBJECT_RETRIES})")
-            if consecutive_misses >= LOST_OBJECT_RETRIES:
-                print("  ERROR: Lost object during descent. Aborting.")
-                return False
-            time.sleep(0.5)
-            continue
-        consecutive_misses = 0
+            print(f"  Iter {i+1}: object not detected, initiating search wiggle...")
+            det, shape, found_at_wiggle = search_wiggle(target)
+            
+            if det is None:
+                consecutive_search_failures += 1
+                print(f"    Search failed ({consecutive_search_failures}/{MAX_SEARCH_FAILURES})")
+                if consecutive_search_failures >= MAX_SEARCH_FAILURES:
+                    print("  ERROR: Lost object after max search attempts. Aborting.")
+                    return False
+                # Continue loop, try again next iteration
+                continue
+            else:
+                # Found during wiggle - reset failure counter
+                consecutive_search_failures = 0
+                if found_at_wiggle:
+                    # Already descended during wiggle, skip to next iteration
+                    print(f"    Continuing after wiggle descent...")
+                    continue
+        else:
+            consecutive_search_failures = 0
 
         # Compute pixel error using mask centroid
         obj_u, obj_v = get_object_pixel_center(det)
@@ -473,18 +557,21 @@ def pick_up_object(target: str = TARGET_OBJECT):
     gripper.open()
     time.sleep(0.5)
 
-    # Tilt EE +30 deg around Y axis so camera points more downward
-    import math
-    print("Tilting EE +30 deg around Y axis...")
+    # Tilt EE +20 deg around Y axis so camera points more downward
+    print("Tilting EE -20 deg pitch (camera down)...")
     arm.move_delta(dpitch=math.radians(-20), frame="ee", duration=1.0)
     time.sleep(0.3)
 
-    # --- Phase 1: Initial detection ---
+    # --- Phase 1: Initial detection with search wiggle ---
     print("\nPhase 1: Initial detection...")
     det, shape = detect_object_2d(target)
 
     if det is None:
-        print("ERROR: Object not detected. Aborting.")
+        print("  Object not detected at center, trying search wiggle...")
+        det, shape, _ = search_wiggle(target)
+
+    if det is None:
+        print("ERROR: Object not detected after search. Aborting.")
         display.show_text(f"{target} not found!")
         display.show_face("sad")
         return False
