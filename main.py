@@ -85,6 +85,11 @@ STRAIGHT_DOWN_YAW = 0.0
 GRASP_FORCE = 50
 GRASP_SPEED = 200
 
+# --- Joint 7 rotation control (EE frame) ---
+J7_ROTATION_GAIN = 0.5        # Fraction of PCA error to correct per step
+J7_MIN_CORRECTION_RAD = 0.03  # ~2° deadband
+J7_MAX_CORRECTION_RAD = 0.3   # ~17° max per step
+
 
 # ============================================================================
 # Helper functions
@@ -303,12 +308,98 @@ def get_mask_orientation(detection):
     while theta_perp < -math.pi:
         theta_perp += 2 * math.pi
     
-    # Clamp to ±90° to stay within joint limits
+    # Clamp to ±90° to avoid joint limits
     max_angle = math.pi / 2
     theta_perp = max(-max_angle, min(max_angle, theta_perp))
     
     # Negate for image-to-EE coordinate conversion
     return -theta_perp
+
+
+def get_pca_angle_raw(detection):
+    """Get RAW principal axis angle from mask (no perpendicular, no clamp).
+    
+    Returns angle in radians in image frame. Used for continuous tracking.
+    The gripper should align perpendicular to this angle.
+    Returns None if no mask or can't compute.
+    """
+    if detection.mask is None:
+        return None
+    
+    mask = detection.mask
+    binary = (mask > 0.5).astype(np.float32)
+    ys, xs = np.where(binary > 0)
+    
+    if len(xs) < 10:
+        return None
+    
+    cx, cy = xs.mean(), ys.mean()
+    xs_c = xs - cx
+    ys_c = ys - cy
+    
+    cov_xx = np.mean(xs_c * xs_c)
+    cov_yy = np.mean(ys_c * ys_c)
+    cov_xy = np.mean(xs_c * ys_c)
+    
+    # Principal axis angle in image frame
+    theta = 0.5 * np.arctan2(2 * cov_xy, cov_xx - cov_yy)
+    return theta
+
+
+def compute_j7_correction(detection, current_j7: float) -> float:
+    """Compute joint 7 correction to align gripper perpendicular to object.
+    
+    In image frame:
+      - PCA gives object's long axis angle
+      - Gripper (joint 7 = 0) points in a fixed direction in image
+      - We want gripper perpendicular to object's long axis
+    
+    Returns: delta for joint 7 (radians), or 0 if no correction needed.
+    """
+    pca_angle = get_pca_angle_raw(detection)
+    if pca_angle is None:
+        return 0.0
+    
+    # Target: gripper perpendicular to object
+    # In image frame, gripper orientation ≈ joint 7 angle (with offset)
+    # We want: current_j7 + delta such that gripper is perpendicular to pca_angle
+    
+    # Perpendicular target (two options: +90° or -90°)
+    target_perp = pca_angle + math.pi / 2
+    
+    # Normalize target to [-pi, pi]
+    while target_perp > math.pi:
+        target_perp -= 2 * math.pi
+    while target_perp < -math.pi:
+        target_perp += 2 * math.pi
+    
+    # The gripper direction in image ≈ -current_j7 (negated due to frame convention)
+    # Error = where we want to be - where we are
+    # This is approximate; the exact mapping depends on EE orientation
+    error = target_perp - (-current_j7)
+    
+    # Normalize error to [-pi, pi]
+    while error > math.pi:
+        error -= 2 * math.pi
+    while error < -math.pi:
+        error += 2 * math.pi
+    
+    # Check if the other perpendicular is closer
+    error_alt = error - math.pi if error > 0 else error + math.pi
+    if abs(error_alt) < abs(error):
+        error = error_alt
+    
+    # Apply gain and clamp
+    correction = error * J7_ROTATION_GAIN
+    
+    # Deadband
+    if abs(correction) < J7_MIN_CORRECTION_RAD:
+        return 0.0
+    
+    # Clamp max correction per step
+    correction = max(-J7_MAX_CORRECTION_RAD, min(J7_MAX_CORRECTION_RAD, correction))
+    
+    return correction
 
 
 def get_servo_target_pixel(image_shape, ee_z: float):
@@ -353,24 +444,25 @@ def pixel_error_to_ee_delta(u_err, v_err):
 # ============================================================================
 
 def servo_descend(target: str = TARGET_OBJECT):
-    """Servo-descend loop with XY+rotation search on detection miss.
+    """Servo-descend loop with two-phase control.
     
-    Two phases:
-      - Base frame: target = image center
-      - EE frame: target = gripper offset, EE points straight down
-    
-    No yaw rotation during descent (last joint stays at 0°).
+    BASE frame (Z > threshold):
+      - Target = image center
+      - Wiggle search on detection miss
+      
+    EE frame (Z <= threshold):
+      - Target = gripper offset
+      - Continuous joint 7 rotation to track object orientation
+      - NO wiggle search (abort on detection miss)
     """
     ee_x, ee_y, ee_z = sensors.get_ee_position()
     consecutive_search_failures = 0
-    pointed_down = False  # Track if we've set straight-down orientation
-    aligned_to_object = False  # Track if we've rotated to align with object
 
     print(f"\n--- Servo-Descend: approaching '{target}' ---")
     print(f"  Current EE Z: {ee_z:.3f}m, descend step: {DESCEND_STEP_M*1000:.0f}mm")
     print(f"  EE frame switch at Z < {EE_FRAME_Z_THRESHOLD}m")
-    print(f"  Search: ±{SEARCH_WIGGLE_ANGLE_DEG}° rotation + ±{SEARCH_XY_STEP_M*100:.0f}cm XY")
-    print(f"  No yaw rotation during descent (straight down)")
+    print(f"  BASE frame: wiggle search enabled")
+    print(f"  EE frame: continuous J7 rotation tracking, no wiggle")
     display.show_text(f"Approaching {target}...")
     display.show_face("thinking")
 
@@ -378,38 +470,40 @@ def servo_descend(target: str = TARGET_OBJECT):
         ee_x, ee_y, ee_z = sensors.get_ee_position()
         use_ee_frame = ee_z < EE_FRAME_Z_THRESHOLD
         
-        # Align gripper with object orientation when crossing EE frame threshold
-        if use_ee_frame and not aligned_to_object:
-            det_for_align, _ = detect_object_2d(target)
-            if det_for_align is not None:
-                orient_angle = get_mask_orientation(det_for_align)
-                if abs(orient_angle) > 0.05:  # >3 degrees
-                    print(f"    Aligning gripper to object: rotating {math.degrees(orient_angle):.1f}°")
-                    arm.move_delta(dyaw=orient_angle, frame="ee", duration=0.5)
-                    time.sleep(0.3)
-                else:
-                    print(f"    Object orientation ~0°, no rotation needed")
-            aligned_to_object = True
+        # Get current joint 7 for rotation tracking
+        joints = sensors.get_arm_joints()
+        current_j7 = joints[6]
 
         # Detect object
         det, shape = detect_object_2d(target)
 
         if det is None:
-            print(f"  Iter {i+1}: object not detected, searching...")
-            det, shape, found_at_wiggle = search_wiggle(target)
-            
-            if det is None:
+            if use_ee_frame:
+                # EE frame: no wiggle, just fail after a few misses
                 consecutive_search_failures += 1
-                print(f"    Search failed ({consecutive_search_failures}/{MAX_SEARCH_FAILURES})")
+                print(f"  Iter {i+1}: object not detected in EE frame ({consecutive_search_failures}/{MAX_SEARCH_FAILURES})")
                 if consecutive_search_failures >= MAX_SEARCH_FAILURES:
-                    print("  ERROR: Lost object after max search attempts.")
+                    print("  ERROR: Lost object in EE frame. Aborting.")
                     return False
+                time.sleep(0.2)
                 continue
             else:
-                consecutive_search_failures = 0
-                if found_at_wiggle:
-                    print(f"    Continuing after search descent...")
+                # BASE frame: use wiggle search
+                print(f"  Iter {i+1}: object not detected, searching...")
+                det, shape, found_at_wiggle = search_wiggle(target)
+                
+                if det is None:
+                    consecutive_search_failures += 1
+                    print(f"    Search failed ({consecutive_search_failures}/{MAX_SEARCH_FAILURES})")
+                    if consecutive_search_failures >= MAX_SEARCH_FAILURES:
+                        print("  ERROR: Lost object after max search attempts.")
+                        return False
                     continue
+                else:
+                    consecutive_search_failures = 0
+                    if found_at_wiggle:
+                        print(f"    Continuing after search descent...")
+                        continue
         else:
             consecutive_search_failures = 0
 
@@ -424,10 +518,17 @@ def servo_descend(target: str = TARGET_OBJECT):
         src = "mask" if has_mask else "bbox"
         frame_str = "EE" if use_ee_frame else "BASE"
         target_str = "gripper" if use_ee_frame else "center"
+        
+        # Compute J7 rotation correction (EE frame only)
+        j7_correction = 0.0
+        if use_ee_frame and has_mask:
+            j7_correction = compute_j7_correction(det, current_j7)
+        
+        j7_str = f" J7={math.degrees(j7_correction):+.1f}°" if j7_correction != 0 else ""
         print(f"  Iter {i+1}: err=({u_err:.0f},{v_err:.0f}) |{error_mag:.0f}px| "
-              f"[{src}] [{frame_str}→{target_str}] Z={ee_z:.3f}m")
+              f"[{src}] [{frame_str}→{target_str}] Z={ee_z:.3f}m{j7_str}")
 
-        # Compute lateral correction (no yaw)
+        # Compute lateral correction
         if use_ee_frame:
             dx_lat = EE_GAIN_V_TO_DX * v_err
             dy_lat = EE_GAIN_U_TO_DY * u_err
@@ -451,7 +552,7 @@ def servo_descend(target: str = TARGET_OBJECT):
         dz = descend_this_step if use_ee_frame else -descend_this_step
 
         # Force descent if move is negligible
-        if np.sqrt(dx**2 + dy**2 + dz**2) < MIN_LATERAL_STEP_M:
+        if np.sqrt(dx**2 + dy**2 + dz**2) < MIN_LATERAL_STEP_M and j7_correction == 0:
             dz = DESCEND_STEP_M if use_ee_frame else -DESCEND_STEP_M
             descend_this_step = DESCEND_STEP_M
             dx, dy = 0.0, 0.0
@@ -459,7 +560,22 @@ def servo_descend(target: str = TARGET_OBJECT):
         desc_str = f" ↓{descend_this_step*1000:.0f}mm" if descend_this_step > 0 else ""
         print(f"    Move [{frame_str}]: dx={dx*1000:.1f} dy={dy*1000:.1f} dz={dz*1000:.1f}{desc_str}")
 
+        # Execute moves
         frame = "ee" if use_ee_frame else "base"
+        
+        # In EE frame: do J7 correction first, then XY+Z
+        if use_ee_frame and j7_correction != 0:
+            new_j7 = current_j7 + j7_correction
+            new_joints = list(joints)
+            new_joints[6] = new_j7
+            print(f"    J7: {math.degrees(current_j7):.1f}° → {math.degrees(new_j7):.1f}°")
+            try:
+                arm.move_joints(new_joints, duration=0.3)
+            except ArmError as e:
+                print(f"    J7 move failed: {e}")
+            time.sleep(0.1)
+        
+        # XY + Z move
         try:
             arm.move_delta(dx=dx, dy=dy, dz=dz, frame=frame, duration=SERVO_MOVE_DURATION)
         except ArmError as e:

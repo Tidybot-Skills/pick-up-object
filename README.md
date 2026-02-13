@@ -21,8 +21,9 @@ Dependencies: none
 ## Key Features
 
 - **Stay at found position**: When XY/rotation search finds the object, arm stays there
-- **No yaw rotation during descent**: Last joint stays at 0°
-- **Robust to spotty detection**: Searches aggressively, fails only after 3 consecutive search failures
+- **Continuous J7 rotation tracking (EE frame)**: Joint 7 adjusts each iteration to keep gripper aligned perpendicular to object
+- **Two-phase search strategy**: Wiggle search in BASE frame only; no wiggle in EE frame (abort on miss)
+- **Robust to spotty detection**: BASE frame searches aggressively, EE frame requires stable detection
 
 ## Usage
 
