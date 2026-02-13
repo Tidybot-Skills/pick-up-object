@@ -358,9 +358,9 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     pca_deg = math.degrees(pca_angle)
     j7_deg = math.degrees(current_j7)
     
-    # Target: gripper perpendicular to object's long axis
-    # PCA gives the long axis angle; we want J7 at PCA + 90°
-    target = pca_angle + math.pi / 2
+    # Target: gripper aligned with object's long axis (banana vertical in image)
+    # PCA gives the long axis angle; we want J7 to match it
+    target = pca_angle
     
     # Normalize target to [-pi, pi]
     while target > math.pi:
@@ -377,8 +377,8 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     while error < -math.pi:
         error += 2 * math.pi
     
-    # Check if the opposite perpendicular (target - 180°) is closer
-    # Both are valid grasp orientations
+    # Check if opposite direction (target ± 180°) is closer
+    # Both orientations are equivalent for grasping
     error_alt = error - math.pi if error > 0 else error + math.pi
     if abs(error_alt) < abs(error):
         error = error_alt
