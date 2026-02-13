@@ -86,9 +86,9 @@ GRASP_FORCE = 50
 GRASP_SPEED = 200
 
 # --- Joint 7 rotation control (EE frame) ---
-J7_ROTATION_GAIN = 0.5        # Fraction of PCA error to correct per step
+J7_ROTATION_GAIN = 0.3        # Fraction of PCA error to correct per step (reduced for stability)
 J7_MIN_CORRECTION_RAD = 0.03  # ~2° deadband
-J7_MAX_CORRECTION_RAD = 0.3   # ~17° max per step
+J7_MAX_CORRECTION_RAD = 0.15  # ~8.5° max per step (reduced from 17°)
 
 
 # ============================================================================
@@ -346,37 +346,25 @@ def get_pca_angle_raw(detection):
     return theta
 
 
-def compute_j7_correction(detection, current_j7: float) -> float:
+def compute_j7_correction(detection, current_j7: float) -> tuple:
     """Compute joint 7 correction to align gripper perpendicular to object.
     
-    In image frame:
-      - PCA gives object's long axis angle
-      - Gripper (joint 7 = 0) points in a fixed direction in image
-      - We want gripper perpendicular to object's long axis
-    
-    Returns: delta for joint 7 (radians), or 0 if no correction needed.
+    Returns: (correction_rad, debug_info) where debug_info is a string.
     """
     pca_angle = get_pca_angle_raw(detection)
     if pca_angle is None:
-        return 0.0
+        return 0.0, "no_mask"
     
-    # Target: gripper perpendicular to object
-    # In image frame, gripper orientation ≈ joint 7 angle (with offset)
-    # We want: current_j7 + delta such that gripper is perpendicular to pca_angle
+    pca_deg = math.degrees(pca_angle)
+    j7_deg = math.degrees(current_j7)
     
-    # Perpendicular target (two options: +90° or -90°)
-    target_perp = pca_angle + math.pi / 2
+    # Target: J7 should match PCA angle (so gripper is perpendicular to object)
+    # When J7 = PCA, the gripper crosses the object's long axis at 90°
+    # Note: This is a simplification; exact mapping depends on arm pose
     
-    # Normalize target to [-pi, pi]
-    while target_perp > math.pi:
-        target_perp -= 2 * math.pi
-    while target_perp < -math.pi:
-        target_perp += 2 * math.pi
-    
-    # The gripper direction in image ≈ -current_j7 (negated due to frame convention)
-    # Error = where we want to be - where we are
-    # This is approximate; the exact mapping depends on EE orientation
-    error = target_perp - (-current_j7)
+    # Simple approach: drive J7 toward PCA angle
+    # (The perpendicular is handled by the coordinate frame convention)
+    error = pca_angle - current_j7
     
     # Normalize error to [-pi, pi]
     while error > math.pi:
@@ -384,22 +372,20 @@ def compute_j7_correction(detection, current_j7: float) -> float:
     while error < -math.pi:
         error += 2 * math.pi
     
-    # Check if the other perpendicular is closer
-    error_alt = error - math.pi if error > 0 else error + math.pi
-    if abs(error_alt) < abs(error):
-        error = error_alt
+    error_deg = math.degrees(error)
     
-    # Apply gain and clamp
+    # Apply gain
     correction = error * J7_ROTATION_GAIN
     
     # Deadband
     if abs(correction) < J7_MIN_CORRECTION_RAD:
-        return 0.0
+        return 0.0, f"pca={pca_deg:.0f}° j7={j7_deg:.0f}° err={error_deg:.0f}° (deadband)"
     
     # Clamp max correction per step
     correction = max(-J7_MAX_CORRECTION_RAD, min(J7_MAX_CORRECTION_RAD, correction))
     
-    return correction
+    corr_deg = math.degrees(correction)
+    return correction, f"pca={pca_deg:.0f}° j7={j7_deg:.0f}° err={error_deg:.0f}° corr={corr_deg:+.0f}°"
 
 
 def get_servo_target_pixel(image_shape, ee_z: float):
@@ -521,10 +507,11 @@ def servo_descend(target: str = TARGET_OBJECT):
         
         # Compute J7 rotation correction (EE frame only)
         j7_correction = 0.0
+        j7_debug = ""
         if use_ee_frame and has_mask:
-            j7_correction = compute_j7_correction(det, current_j7)
+            j7_correction, j7_debug = compute_j7_correction(det, current_j7)
         
-        j7_str = f" J7={math.degrees(j7_correction):+.1f}°" if j7_correction != 0 else ""
+        j7_str = f" [{j7_debug}]" if j7_debug else ""
         print(f"  Iter {i+1}: err=({u_err:.0f},{v_err:.0f}) |{error_mag:.0f}px| "
               f"[{src}] [{frame_str}→{target_str}] Z={ee_z:.3f}m{j7_str}")
 
