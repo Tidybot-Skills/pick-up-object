@@ -1,0 +1,53 @@
+{
+  "trial": 1,
+  "execution_id": "3252f277",
+  "success": true,
+  "exit_code": 0,
+  "duration": 46.46928882598877,
+  "stdout": "[SDK] Franka backend connected\n[SDK] WARNING: Base backend unavailable: [Errno 111] Connection refused\n[SDK] Gripper backend connected\n[SDK] Rewind API initialized (server: http://localhost:8080)\n[SDK] YOLO API initialized\n[SDK] Display API initialized\n=== Pick Object: 'banana' ===\n\nPhase 0: Initializing gripper...\nTilting EE -20 deg pitch (camera down)...\n\nPhase 1: Initial detection...\n[YOLO] Visualization saved (1 detections)\n  Detected at pixel (353, 147) [mask]\n\nPhase 2: Servo-descend...\n\n--- Servo-Descend: approaching 'banana' ---\n  Current EE Z: 0.229m, descend step: 50mm\n  EE frame switch at Z < -0.25m\n  BASE frame: wiggle search enabled\n  EE frame: continuous J7 rotation tracking, no wiggle\n[YOLO] Visualization saved (1 detections)\n  Iter 1: err=(33,-93) |99px| [mask] [BASE\u2192center] Z=0.229m\n    Pausing descent (error 99 > 80px)\n    Move [BASE]: dx=47.1 dy=-16.7 dz=-0.0\n[YOLO] Visualization saved (0 detections)\n  Iter 2: object not detected, searching...\n    Wiggle search: checking center with XY sweep...\n[YOLO] Visualization saved (0 detections)\n      Sweeping X \u00b15cm...\n[YOLO] Visualization saved (1 detections)\n      Found at +5cm X - staying here\n    Found object at center\n  Iter 2: err=(27,-29) |39px| [mask] [BASE\u2192center] Z=0.216m\n    Move [BASE]: dx=17.3 dy=-16.0 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (0 detections)\n  Iter 3: object not detected, searching...\n    Wiggle search: checking center with XY sweep...\n[YOLO] Visualization saved (0 detections)\n      Sweeping X \u00b15cm...\n[YOLO] Visualization saved (1 detections)\n      Found at +5cm X - staying here\n    Found object at center\n  Iter 3: err=(22,4) |23px| [mask] [BASE\u2192center] Z=0.140m\n    Move [BASE]: dx=-2.6 dy=-13.4 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 4: err=(17,-11) |20px| [mask] [BASE\u2192center] Z=0.068m\n    Move [BASE]: dx=6.6 dy=-10.0 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 5: err=(14,-17) |21px| [mask] [BASE\u2192center] Z=0.005m\n    Move [BASE]: dx=9.9 dy=-8.1 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 6: err=(13,11) |17px| [mask] [BASE\u2192center] Z=-0.058m\n    Move [BASE]: dx=-6.7 dy=-7.5 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 7: err=(8,25) |26px| [mask] [BASE\u2192center] Z=-0.120m\n    Move [BASE]: dx=-14.9 dy=-4.9 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 8: err=(6,29) |30px| [mask] [BASE\u2192center] Z=-0.181m\n    Move [BASE]: dx=-17.6 dy=-3.4 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 9: err=(3,26) |26px| [mask] [BASE\u2192center] Z=-0.240m\n    Move [BASE]: dx=-15.3 dy=-1.6 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 10: err=(13,-1) |13px| [mask] [EE\u2192gripper] Z=-0.300m [pca=48\u00b0 want=0\u00b0 err=-48\u00b0 corr=-48\u00b0]\n    Move [EE]: dx=2.3 dy=22.1 dz=50.0 \u219350mm\n    J7: 43.3\u00b0 \u2192 -4.9\u00b0 (0.8s)\n[YOLO] Visualization saved (1 detections)\n  Iter 11: err=(-15,-14) |20px| [mask] [EE\u2192gripper] Z=-0.357m [pca=-85\u00b0 (near \u00b190\u00b0 deadzone)]\n    Move [EE]: dx=21.0 dy=-25.5 dz=50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 12: err=(25,-3) |25px| [mask] [EE\u2192gripper] Z=-0.414m [pca=-81\u00b0 (near \u00b190\u00b0 deadzone)]\n    Move [EE]: dx=5.1 dy=43.3 dz=50.0 \u219350mm\n  FLOOR CONTACT: Timeout: arm did not converge (error=0.0387 m)\n  Final EE Z: -0.423m\n\nPhase 3: Grasping...\n  Object grasped!\n\nPhase 4: Going home...\n\nPhase 5: Opening gripper...\n\n=== Successfully picked 'banana'! ===\n\nResult: SUCCESS\n",
+  "stderr": "",
+  "recording": {
+    "execution_id": "3252f277",
+    "started_at": 1771026395.4013097,
+    "stopped_at": 1771026441.8712115,
+    "duration": 46.47,
+    "interval": 2.0,
+    "frame_count": 24,
+    "cameras": [
+      {
+        "device_id": "336222071022",
+        "name": "base_cam"
+      },
+      {
+        "device_id": "309622300814",
+        "name": "wrist_cam"
+      }
+    ],
+    "timestamps": [
+      1771026395.401,
+      1771026397.402,
+      1771026399.403,
+      1771026401.403,
+      1771026403.404,
+      1771026405.404,
+      1771026407.404,
+      1771026409.405,
+      1771026411.405,
+      1771026413.405,
+      1771026415.406,
+      1771026417.407,
+      1771026419.407,
+      1771026421.407,
+      1771026423.408,
+      1771026425.408,
+      1771026427.408,
+      1771026429.408,
+      1771026431.409,
+      1771026433.409,
+      1771026435.41,
+      1771026437.41,
+      1771026439.411,
+      1771026441.411
+    ]
+  }
+}

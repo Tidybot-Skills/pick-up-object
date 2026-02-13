@@ -1,0 +1,52 @@
+{
+  "trial": 4,
+  "execution_id": "2cf05b60",
+  "success": false,
+  "exit_code": 0,
+  "duration": 44.11680746078491,
+  "stdout": "[SDK] Franka backend connected\n[SDK] WARNING: Base backend unavailable: [Errno 111] Connection refused\n[SDK] Gripper backend connected\n[SDK] Rewind API initialized (server: http://localhost:8080)\n[SDK] YOLO API initialized\n[SDK] Display API initialized\n=== Pick Object: 'banana' ===\n\nPhase 0: Initializing gripper...\nTilting EE -20 deg pitch (camera down)...\n\nPhase 1: Initial detection...\n[YOLO] Visualization saved (1 detections)\n  Detected at pixel (275, 172) [mask]\n\nPhase 2: Servo-descend...\n\n--- Servo-Descend: approaching 'banana' ---\n  Current EE Z: 0.225m, descend step: 50mm\n  EE frame switch at Z < -0.25m\n  BASE frame: wiggle search enabled\n  EE frame: continuous J7 rotation tracking, no wiggle\n[YOLO] Visualization saved (1 detections)\n  Iter 1: err=(-45,-68) |82px| [mask] [BASE\u2192center] Z=0.225m\n    Pausing descent (error 82 > 80px)\n    Move [BASE]: dx=40.9 dy=27.1 dz=-0.0\n[YOLO] Visualization saved (1 detections)\n  Iter 2: err=(-32,-43) |53px| [mask] [BASE\u2192center] Z=0.213m\n    Move [BASE]: dx=25.8 dy=18.9 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 3: err=(-25,-40) |47px| [mask] [BASE\u2192center] Z=0.150m\n    Move [BASE]: dx=23.7 dy=14.9 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 4: err=(-21,-37) |42px| [mask] [BASE\u2192center] Z=0.086m\n    Move [BASE]: dx=21.9 dy=12.8 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 5: err=(-15,-28) |32px| [mask] [BASE\u2192center] Z=0.022m\n    Move [BASE]: dx=17.0 dy=8.8 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 6: err=(-11,-3) |12px| [mask] [BASE\u2192center] Z=-0.041m\n    Move [BASE]: dx=1.8 dy=6.8 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 7: err=(-11,19) |22px| [mask] [BASE\u2192center] Z=-0.104m\n    Move [BASE]: dx=-11.4 dy=6.6 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (2 detections)\n  Iter 8: err=(-11,30) |32px| [mask] [BASE\u2192center] Z=-0.165m\n    Move [BASE]: dx=-17.9 dy=6.6 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 9: err=(-11,30) |32px| [mask] [BASE\u2192center] Z=-0.225m\n    Move [BASE]: dx=-17.8 dy=6.8 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 10: err=(-4,14) |14px| [mask] [EE\u2192gripper] Z=-0.285m [pca=37\u00b0 want=0\u00b0 err=-37\u00b0 corr=-9\u00b0]\n    Move [EE]: dx=-20.6 dy=-7.0 dz=50.0 \u219350mm\n    J7: 45.4\u00b0 \u2192 36.8\u00b0\n[YOLO] Visualization saved (1 detections)\n  Iter 11: err=(4,-29) |30px| [mask] [EE\u2192gripper] Z=-0.344m [pca=39\u00b0 want=0\u00b0 err=-39\u00b0 corr=-9\u00b0]\n    Move [EE]: dx=44.4 dy=6.5 dz=50.0 \u219350mm\n    J7: 37.6\u00b0 \u2192 29.0\u00b0\n[YOLO] Visualization saved (1 detections)\n  Iter 12: err=(2,14) |14px| [mask] [EE\u2192gripper] Z=-0.397m [pca=48\u00b0 want=0\u00b0 err=-48\u00b0 corr=-9\u00b0]\n    Move [EE]: dx=-21.6 dy=4.3 dz=50.0 \u219350mm\n    J7: 29.9\u00b0 \u2192 21.3\u00b0\n  FLOOR CONTACT: Timeout: arm did not converge (error=0.0457 m)\n  Final EE Z: -0.404m\n\nPhase 3: Grasping...\n  WARNING: No object detected in gripper.\n\nPhase 4: Going home...\n\nPhase 5: Opening gripper...\n\n=== Pick attempt complete (grasp uncertain). ===\n\nResult: FAILED\n",
+  "stderr": "",
+  "recording": {
+    "execution_id": "2cf05b60",
+    "started_at": 1771024812.229623,
+    "stopped_at": 1771024856.3469942,
+    "duration": 44.12,
+    "interval": 2.0,
+    "frame_count": 23,
+    "cameras": [
+      {
+        "device_id": "336222071022",
+        "name": "base_cam"
+      },
+      {
+        "device_id": "309622300814",
+        "name": "wrist_cam"
+      }
+    ],
+    "timestamps": [
+      1771024812.23,
+      1771024814.23,
+      1771024816.231,
+      1771024818.231,
+      1771024820.231,
+      1771024822.232,
+      1771024824.232,
+      1771024826.232,
+      1771024828.233,
+      1771024830.233,
+      1771024832.233,
+      1771024834.234,
+      1771024836.234,
+      1771024838.234,
+      1771024840.235,
+      1771024842.235,
+      1771024844.236,
+      1771024846.236,
+      1771024848.236,
+      1771024850.237,
+      1771024852.238,
+      1771024854.238,
+      1771024856.238
+    ]
+  }
+}

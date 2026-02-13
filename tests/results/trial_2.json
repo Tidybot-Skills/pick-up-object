@@ -1,0 +1,66 @@
+{
+  "trial": 2,
+  "execution_id": "6a38b871",
+  "success": true,
+  "exit_code": 0,
+  "duration": 73.93026375770569,
+  "stdout": "[SDK] Franka backend connected\n[SDK] WARNING: Base backend unavailable: [Errno 111] Connection refused\n[SDK] Gripper backend connected\n[SDK] Rewind API initialized (server: http://localhost:8080)\n[SDK] YOLO API initialized\n[SDK] Display API initialized\n=== Pick Object: 'banana' ===\n\nPhase 0: Initializing gripper...\nTilting EE -20 deg pitch (camera down)...\n\nPhase 1: Initial detection...\n[YOLO] Visualization saved (0 detections)\n  Object not detected, trying search...\n    Wiggle search: checking center with XY sweep...\n[YOLO] Visualization saved (0 detections)\n      Sweeping X \u00b15cm...\n[YOLO] Visualization saved (0 detections)\n[YOLO] Visualization saved (0 detections)\n      Sweeping Y \u00b15cm...\n[YOLO] Visualization saved (1 detections)\n      Found at +5cm Y - staying here\n    Found object at center\n  Detected at pixel (495, 139) [mask]\n\nPhase 2: Servo-descend...\n\n--- Servo-Descend: approaching 'banana' ---\n  Current EE Z: 0.199m, descend step: 50mm\n  EE frame switch at Z < -0.25m\n  BASE frame: wiggle search enabled\n  EE frame: continuous J7 rotation tracking, no wiggle\n[YOLO] Visualization saved (0 detections)\n  Iter 1: object not detected, searching...\n    Wiggle search: checking center with XY sweep...\n[YOLO] Visualization saved (0 detections)\n      Sweeping X \u00b15cm...\n[YOLO] Visualization saved (0 detections)\n[YOLO] Visualization saved (0 detections)\n      Sweeping Y \u00b15cm...\n[YOLO] Visualization saved (0 detections)\n[YOLO] Visualization saved (0 detections)\n    Wiggle search: rotating +30\u00b0...\n[YOLO] Visualization saved (0 detections)\n      Sweeping X \u00b15cm...\n[YOLO] Visualization saved (0 detections)\n[YOLO] Visualization saved (0 detections)\n      Sweeping Y \u00b15cm...\n[YOLO] Visualization saved (0 detections)\n[YOLO] Visualization saved (1 detections)\n      Found at -5cm Y - staying here\n    Found at +30\u00b0 - descending & returning rotation to 0\u00b0\n    Continuing after search descent...\n[YOLO] Visualization saved (1 detections)\n  Iter 2: err=(86,-132) |158px| [mask] [BASE\u2192center] Z=0.078m\n    Pausing descent (error 158 > 80px)\n    Move [BASE]: dx=42.0 dy=-27.1 dz=-0.0\n[YOLO] Visualization saved (1 detections)\n  Iter 3: err=(71,-101) |123px| [mask] [BASE\u2192center] Z=0.071m\n    Pausing descent (error 123 > 80px)\n    Move [BASE]: dx=41.0 dy=-28.6 dz=-0.0\n[YOLO] Visualization saved (1 detections)\n  Iter 4: err=(56,-70) |89px| [mask] [BASE\u2192center] Z=0.063m\n    Pausing descent (error 89 > 80px)\n    Move [BASE]: dx=39.2 dy=-31.1 dz=-0.0\n[YOLO] Visualization saved (1 detections)\n  Iter 5: err=(38,-39) |54px| [mask] [BASE\u2192center] Z=0.055m\n    Move [BASE]: dx=23.5 dy=-22.7 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 6: err=(30,-27) |41px| [mask] [BASE\u2192center] Z=-0.008m\n    Move [BASE]: dx=16.2 dy=-18.3 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (0 detections)\n  Iter 7: object not detected, searching...\n    Wiggle search: checking center with XY sweep...\n[YOLO] Visualization saved (0 detections)\n      Sweeping X \u00b15cm...\n[YOLO] Visualization saved (1 detections)\n      Found at +5cm X - staying here\n    Found object at center\n  Iter 7: err=(33,50) |60px| [mask] [BASE\u2192center] Z=-0.071m\n    Move [BASE]: dx=-29.7 dy=-20.0 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 8: err=(17,43) |46px| [mask] [BASE\u2192center] Z=-0.134m\n    Move [BASE]: dx=-25.9 dy=-10.1 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 9: err=(9,36) |37px| [mask] [BASE\u2192center] Z=-0.192m\n    Move [BASE]: dx=-21.7 dy=-5.2 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 10: err=(8,29) |30px| [mask] [EE\u2192gripper] Z=-0.250m [pca=20\u00b0 want=0\u00b0 err=-20\u00b0 corr=-20\u00b0]\n    Move [EE]: dx=-43.4 dy=13.2 dz=50.0 \u219350mm\n    J7: 29.8\u00b0 \u2192 9.6\u00b0 (0.5s)\n[YOLO] Visualization saved (1 detections)\n  Iter 11: err=(-3,-29) |29px| [mask] [EE\u2192gripper] Z=-0.315m [pca=36\u00b0 want=0\u00b0 err=-36\u00b0 corr=-36\u00b0]\n    Move [EE]: dx=43.9 dy=-5.6 dz=50.0 \u219350mm\n    J7: 8.9\u00b0 \u2192 -27.3\u00b0 (0.7s)\n[YOLO] Visualization saved (2 detections)\n  Iter 12: err=(26,-10) |27px| [mask] [EE\u2192gripper] Z=-0.369m [pca=70\u00b0 want=0\u00b0 err=-70\u00b0 corr=-70\u00b0]\n    Move [EE]: dx=14.6 dy=44.2 dz=50.0 \u219350mm\n    J7: -25.5\u00b0 \u2192 -95.3\u00b0 (1.1s)\n[YOLO] Visualization saved (1 detections)\n  Iter 13: err=(-19,37) |41px| [mask] [EE\u2192gripper] Z=-0.410m [pca=-54\u00b0 want=0\u00b0 err=54\u00b0 corr=+54\u00b0]\n    Move [EE]: dx=-43.0 dy=-25.5 dz=50.0 \u219350mm\n    J7: -93.6\u00b0 \u2192 -39.2\u00b0 (0.9s)\n  FLOOR CONTACT: Timeout: arm did not converge (error=0.0457 m)\n  Final EE Z: -0.425m\n\nPhase 3: Grasping...\n  Object grasped!\n\nPhase 4: Going home...\n\nPhase 5: Opening gripper...\n\n=== Successfully picked 'banana'! ===\n\nResult: SUCCESS\n",
+  "stderr": "",
+  "recording": {
+    "execution_id": "6a38b871",
+    "started_at": 1771026449.796177,
+    "stopped_at": 1771026523.7270825,
+    "duration": 73.93,
+    "interval": 2.0,
+    "frame_count": 37,
+    "cameras": [
+      {
+        "device_id": "336222071022",
+        "name": "base_cam"
+      },
+      {
+        "device_id": "309622300814",
+        "name": "wrist_cam"
+      }
+    ],
+    "timestamps": [
+      1771026449.796,
+      1771026451.798,
+      1771026453.799,
+      1771026455.799,
+      1771026457.8,
+      1771026459.8,
+      1771026461.8,
+      1771026463.801,
+      1771026465.801,
+      1771026467.801,
+      1771026469.801,
+      1771026471.802,
+      1771026473.802,
+      1771026475.802,
+      1771026477.803,
+      1771026479.803,
+      1771026481.803,
+      1771026483.804,
+      1771026485.804,
+      1771026487.804,
+      1771026489.805,
+      1771026491.805,
+      1771026493.805,
+      1771026495.806,
+      1771026497.806,
+      1771026499.806,
+      1771026501.807,
+      1771026503.807,
+      1771026505.807,
+      1771026507.807,
+      1771026509.808,
+      1771026511.808,
+      1771026513.808,
+      1771026515.809,
+      1771026517.809,
+      1771026519.809,
+      1771026521.81
+    ]
+  }
+}

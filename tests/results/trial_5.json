@@ -1,0 +1,52 @@
+{
+  "trial": 5,
+  "execution_id": "27b526e1",
+  "success": false,
+  "exit_code": 0,
+  "duration": 45.09278917312622,
+  "stdout": "[SDK] Franka backend connected\n[SDK] WARNING: Base backend unavailable: [Errno 111] Connection refused\n[SDK] Gripper backend connected\n[SDK] Rewind API initialized (server: http://localhost:8080)\n[SDK] YOLO API initialized\n[SDK] Display API initialized\n=== Pick Object: 'banana' ===\n\nPhase 0: Initializing gripper...\nTilting EE -20 deg pitch (camera down)...\n\nPhase 1: Initial detection...\n[YOLO] Visualization saved (1 detections)\n  Detected at pixel (278, 169) [mask]\n\nPhase 2: Servo-descend...\n\n--- Servo-Descend: approaching 'banana' ---\n  Current EE Z: 0.225m, descend step: 50mm\n  EE frame switch at Z < -0.25m\n  BASE frame: wiggle search enabled\n  EE frame: continuous J7 rotation tracking, no wiggle\n[YOLO] Visualization saved (1 detections)\n  Iter 1: err=(-42,-72) |83px| [mask] [BASE\u2192center] Z=0.225m\n    Pausing descent (error 83 > 80px)\n    Move [BASE]: dx=43.0 dy=25.1 dz=-0.0\n[YOLO] Visualization saved (0 detections)\n  Iter 2: object not detected, searching...\n    Wiggle search: checking center with XY sweep...\n[YOLO] Visualization saved (0 detections)\n      Sweeping X \u00b15cm...\n[YOLO] Visualization saved (1 detections)\n      Found at +5cm X - staying here\n    Found object at center\n  Iter 2: err=(-30,-12) |32px| [mask] [BASE\u2192center] Z=0.213m\n    Move [BASE]: dx=7.2 dy=17.8 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 3: err=(-24,-21) |32px| [mask] [BASE\u2192center] Z=0.140m\n    Move [BASE]: dx=12.6 dy=14.4 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 4: err=(-19,-24) |31px| [mask] [BASE\u2192center] Z=0.079m\n    Move [BASE]: dx=14.4 dy=11.7 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 5: err=(-15,-23) |27px| [mask] [BASE\u2192center] Z=0.016m\n    Move [BASE]: dx=13.7 dy=8.8 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 6: err=(-12,4) |13px| [mask] [BASE\u2192center] Z=-0.048m\n    Move [BASE]: dx=-2.1 dy=7.3 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 7: err=(-10,24) |26px| [mask] [BASE\u2192center] Z=-0.110m\n    Move [BASE]: dx=-14.3 dy=6.1 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (2 detections)\n  Iter 8: err=(-10,32) |33px| [mask] [BASE\u2192center] Z=-0.170m\n    Move [BASE]: dx=-19.0 dy=5.8 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 9: err=(-10,32) |33px| [mask] [BASE\u2192center] Z=-0.230m\n    Move [BASE]: dx=-19.0 dy=6.0 dz=-50.0 \u219350mm\n[YOLO] Visualization saved (1 detections)\n  Iter 10: err=(-1,13) |13px| [mask] [EE\u2192gripper] Z=-0.290m [pca=31\u00b0 want=0\u00b0 err=-31\u00b0 corr=-9\u00b0]\n    Move [EE]: dx=-20.0 dy=-2.4 dz=50.0 \u219350mm\n    J7: 45.0\u00b0 \u2192 36.4\u00b0\n[YOLO] Visualization saved (1 detections)\n  Iter 11: err=(3,-29) |29px| [mask] [EE\u2192gripper] Z=-0.348m [pca=35\u00b0 want=0\u00b0 err=-35\u00b0 corr=-9\u00b0]\n    Move [EE]: dx=43.7 dy=5.4 dz=50.0 \u219350mm\n    J7: 37.2\u00b0 \u2192 28.6\u00b0\n[YOLO] Visualization saved (1 detections)\n  Iter 12: err=(4,20) |20px| [mask] [EE\u2192gripper] Z=-0.397m [pca=41\u00b0 want=0\u00b0 err=-41\u00b0 corr=-9\u00b0]\n    Move [EE]: dx=-29.6 dy=6.4 dz=50.0 \u219350mm\n    J7: 29.5\u00b0 \u2192 20.9\u00b0\n  FLOOR CONTACT: Timeout: arm did not converge (error=0.0483 m)\n  Final EE Z: -0.403m\n\nPhase 3: Grasping...\n  WARNING: No object detected in gripper.\n\nPhase 4: Going home...\n\nPhase 5: Opening gripper...\n\n=== Pick attempt complete (grasp uncertain). ===\n\nResult: FAILED\n",
+  "stderr": "",
+  "recording": {
+    "execution_id": "27b526e1",
+    "started_at": 1771024864.4824123,
+    "stopped_at": 1771024909.5758855,
+    "duration": 45.09,
+    "interval": 2.0,
+    "frame_count": 23,
+    "cameras": [
+      {
+        "device_id": "336222071022",
+        "name": "base_cam"
+      },
+      {
+        "device_id": "309622300814",
+        "name": "wrist_cam"
+      }
+    ],
+    "timestamps": [
+      1771024864.483,
+      1771024866.483,
+      1771024868.484,
+      1771024870.484,
+      1771024872.484,
+      1771024874.485,
+      1771024876.485,
+      1771024878.485,
+      1771024880.485,
+      1771024882.486,
+      1771024884.486,
+      1771024886.486,
+      1771024888.487,
+      1771024890.487,
+      1771024892.487,
+      1771024894.487,
+      1771024896.488,
+      1771024898.488,
+      1771024900.488,
+      1771024902.488,
+      1771024904.489,
+      1771024906.489,
+      1771024908.489
+    ]
+  }
+}

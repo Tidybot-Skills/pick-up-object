@@ -1,0 +1,21 @@
+{
+  "num_trials": 3,
+  "successes": 3,
+  "results": [
+    {
+      "trial": 1,
+      "success": true,
+      "execution_id": "3252f277"
+    },
+    {
+      "trial": 2,
+      "success": true,
+      "execution_id": "6a38b871"
+    },
+    {
+      "trial": 3,
+      "success": true,
+      "execution_id": "48f8b5c5"
+    }
+  ]
+}

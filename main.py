@@ -86,9 +86,9 @@ GRASP_FORCE = 50
 GRASP_SPEED = 200
 
 # --- Joint 7 rotation control (EE frame) ---
-J7_ROTATION_GAIN = 0.3        # Fraction of PCA error to correct per step (reduced for stability)
+J7_ROTATION_GAIN = 1.0        # Full correction each step
 J7_MIN_CORRECTION_RAD = 0.03  # ~2° deadband
-J7_MAX_CORRECTION_RAD = 0.15  # ~8.5° max per step (reduced from 17°)
+J7_MAX_CORRECTION_RAD = 1.57  # ~90° max (effectively unclamped)
 J7_PCA_DEADZONE_DEG = 20      # Don't correct if PCA within this many degrees of ±90°
 
 
@@ -363,7 +363,7 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     j7_deg = math.degrees(current_j7)
     
     # Deadzone: if PCA is within J7_PCA_DEADZONE_DEG of ±90°, don't correct
-    # This prevents oscillation at the vertical position
+    # At ±90° the banana is vertical and small rotations cause big PCA jumps
     dist_to_90 = min(abs(pca_deg - 90), abs(pca_deg + 90))
     if dist_to_90 < J7_PCA_DEADZONE_DEG:
         return 0.0, f"pca={pca_deg:.0f}° (near ±90° deadzone)"
@@ -576,9 +576,11 @@ def servo_descend(target: str = TARGET_OBJECT):
             new_j7 = current_j7 + j7_correction
             new_joints = list(joints)
             new_joints[6] = new_j7
-            print(f"    J7: {math.degrees(current_j7):.1f}° → {math.degrees(new_j7):.1f}°")
+            # Scale duration with angle: 0.3s base + 0.5s per 45°
+            j7_duration = 0.3 + 0.5 * abs(j7_correction) / (math.pi / 4)
+            print(f"    J7: {math.degrees(current_j7):.1f}° → {math.degrees(new_j7):.1f}° ({j7_duration:.1f}s)")
             try:
-                arm.move_joints(new_joints, duration=0.3)
+                arm.move_joints(new_joints, duration=j7_duration)
             except ArmError as e:
                 print(f"    J7 move failed: {e}")
             time.sleep(0.1)
