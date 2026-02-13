@@ -263,6 +263,41 @@ def get_object_pixel_center(detection):
     return (x1 + x2) / 2.0, (y1 + y2) / 2.0
 
 
+def get_mask_orientation(detection):
+    """Get object orientation angle from mask using PCA.
+    
+    Returns angle in radians for EE yaw rotation to align gripper with object's long axis.
+    Returns 0 if no mask or can't compute.
+    """
+    if detection.mask is None:
+        return 0.0
+    
+    mask = detection.mask
+    binary = (mask > 0.5).astype(np.float32)
+    ys, xs = np.where(binary > 0)
+    
+    if len(xs) < 10:  # Need enough pixels
+        return 0.0
+    
+    # Center the points
+    cx, cy = xs.mean(), ys.mean()
+    xs_c = xs - cx
+    ys_c = ys - cy
+    
+    # Compute covariance matrix
+    cov_xx = np.mean(xs_c * xs_c)
+    cov_yy = np.mean(ys_c * ys_c)
+    cov_xy = np.mean(xs_c * ys_c)
+    
+    # Principal axis angle (eigenvector of largest eigenvalue)
+    theta = 0.5 * np.arctan2(2 * cov_xy, cov_xx - cov_yy)
+    
+    # The angle is in image coordinates, need to convert for EE yaw
+    # Image +X is right, +Y is down. For EE yaw, we want rotation about Z.
+    # Return negative because image Y is flipped
+    return -theta
+
+
 def get_servo_target_pixel(image_shape, ee_z: float):
     """Return servo target pixel with gradual gripper offset.
     
@@ -316,6 +351,7 @@ def servo_descend(target: str = TARGET_OBJECT):
     ee_x, ee_y, ee_z = sensors.get_ee_position()
     consecutive_search_failures = 0
     pointed_down = False  # Track if we've set straight-down orientation
+    aligned_to_object = False  # Track if we've rotated to align with object
 
     print(f"\n--- Servo-Descend: approaching '{target}' ---")
     print(f"  Current EE Z: {ee_z:.3f}m, descend step: {DESCEND_STEP_M*1000:.0f}mm")
@@ -329,10 +365,18 @@ def servo_descend(target: str = TARGET_OBJECT):
         ee_x, ee_y, ee_z = sensors.get_ee_position()
         use_ee_frame = ee_z < EE_FRAME_Z_THRESHOLD
         
-        # Skip orientation change - can hit joint limits at workspace edges
-        # if use_ee_frame and not pointed_down:
-        #     point_straight_down()
-        #     pointed_down = True
+        # Align gripper with object orientation when crossing EE frame threshold
+        if use_ee_frame and not aligned_to_object:
+            det_for_align, _ = detect_object_2d(target)
+            if det_for_align is not None:
+                orient_angle = get_mask_orientation(det_for_align)
+                if abs(orient_angle) > 0.05:  # >3 degrees
+                    print(f"    Aligning gripper to object: rotating {math.degrees(orient_angle):.1f}°")
+                    arm.move_delta(dyaw=orient_angle, frame="ee", duration=0.5)
+                    time.sleep(0.3)
+                else:
+                    print(f"    Object orientation ~0°, no rotation needed")
+            aligned_to_object = True
 
         # Detect object
         det, shape = detect_object_2d(target)
