@@ -1,48 +1,63 @@
 # pick-up-object
 
-IBVS (Image-Based Visual Servoing) skill to pick up objects from the ground using wrist camera.
+IBVS (Image-Based Visual Servoing) skill to pick up objects using wrist camera with mask centroid tracking.
+
+Author: jarvis
+Dependencies: none
 
 ## How it works
 
-1. **Visual Servoing**: Uses YOLO detection on wrist camera to center the target object in the camera frame
-2. **Adaptive Gains**: Faster corrections when far, finer control when close
-3. **Two-Stage Descent**: Fast drop (70%) then slow final approach (30%) to ground level
-4. **Grasp & Lift**: Close gripper with force, then lift
+1. **Mask Centroid Tracking**: Uses YOLO segmentation masks (not just bbox) for sub-pixel accurate centering
+2. **Two-Phase Servoing**:
+   - **Base frame** (coarse): Above Z=-0.35m, uses base frame gains for rough approach
+   - **EE frame** (fine): Below Z=-0.35m, switches to end-effector frame with calibrated gains
+3. **Yaw Alignment**: Computes object major axis from mask covariance, rotates gripper perpendicular for optimal grasp
+4. **Simultaneous Descent**: Centers AND descends each iteration (pauses descent if centering error too large)
+5. **Floor Contact Detection**: Descends until ArmError (convergence timeout = floor contact)
 
-## Parameters
+## Key Features
 
-- `GROUND_Z = -0.65` - Ground level in arm base frame
-- `CENTER_THRESH = 50px` - Pixel threshold for "centered"
-- `BBOX_READY = 130px` - Bbox size threshold for "close enough"
-- Adaptive gains: 0.00025 (far), 0.00018 (mid), 0.00012 (close)
+- **Gripper offset compensation**: Targets upper portion of camera frame where gripper actually is
+- **Auto-calibration routine**: `auto_calibrate()` determines correct gain signs/magnitudes
+- **Elongation-aware rotation**: Only rotates gripper for elongated objects (ratio > 2.0)
+- **Lost object recovery**: Retries detection up to 3 consecutive misses before aborting
 
 ## Usage
 
 ```python
 from main import pick_up_object
 
-# Pick up a banana from the ground
-success = pick_up_object("banana")
-
 # Pick up any YOLO-detectable object
+success = pick_up_object("banana")
 success = pick_up_object("apple")
+success = pick_up_object("pen")
+
+# Run auto-calibration (once per setup)
+from main import auto_calibrate
+auto_calibrate("banana")  # Prints recommended gains
 ```
+
+## Configuration
+
+Key parameters in `main.py`:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `CAMERA_ID` | wrist_cam | Camera to use for detection |
+| `DETECTION_CONFIDENCE` | 0.15 | YOLO confidence threshold |
+| `GRIPPER_V_OFFSET` | -120 px | Vertical offset for gripper alignment |
+| `EE_FRAME_Z_THRESHOLD` | -0.35m | Z height to switch to EE frame |
+| `DESCEND_STEP_M` | 0.05m | Descent per iteration |
+| `DESCEND_PAUSE_PIXELS` | 80 px | Pause descent if error exceeds this |
 
 ## Requirements
 
-- Tidybot robot with Franka arm
-- Wrist camera (RealSense)
-- robot_sdk: yolo, arm, gripper, sensors
+- Tidybot robot with Franka Panda arm
+- Wrist camera (RealSense 309622300814)
+- robot_sdk: arm, gripper, sensors, yolo, display
 
-## Testing
+## Tested
 
-Tested with banana on ground (2026-02-10):
-- IBVS converged in ~60 iterations
-- Lowest z reached: -0.644 (arm can reach ground!)
-- Successful grasp and lift
-
-## Notes
-
-- The arm starts at z≈0.24 and descends to z≈-0.65 (total ~0.9m drop)
-- IBVS handles both X and Y centering before descent
-- Two-stage descent prevents collision with ground
+- 2026-02-12: Mask centroid + EE frame servoing working
+- Yaw alignment tracks elongated objects
+- Floor contact detection reliable
