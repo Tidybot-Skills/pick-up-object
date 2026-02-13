@@ -9,8 +9,8 @@ Dependencies: none
 
 1. **Mask Centroid Tracking**: Uses YOLO segmentation masks for accurate centering
 2. **Two-Phase Servoing**:
-   - **Base frame** (Z > -0.25m): target = image center
-   - **EE frame** (Z ≤ -0.25m): target = gripper offset, EE points straight down, one-time alignment rotation
+   - **Base frame** (Z > -0.25m): target = image center, wiggle search on miss
+   - **EE frame** (Z ≤ -0.25m): target = gripper offset, continuous J7 rotation tracking to stay aligned with object
 3. **Search on Detection Miss**: 
    - Sweeps ±5cm in X and Y
    - Rotates ±30° 
@@ -61,3 +61,4 @@ success = pick_up_object("apple")
 ## Tested
 
 - 2026-02-13: Search+stay + straight-down approach working (78% success rate)
+- 2026-02-13: Continuous J7 rotation tracking in EE frame — tested successfully
