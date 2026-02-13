@@ -347,7 +347,7 @@ def get_pca_angle_raw(detection):
 
 
 def compute_j7_correction(detection, current_j7: float) -> tuple:
-    """Compute joint 7 correction to align gripper perpendicular to object.
+    """Compute joint 7 correction to align gripper perpendicular to object's long axis.
     
     Returns: (correction_rad, debug_info) where debug_info is a string.
     """
@@ -358,13 +358,18 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     pca_deg = math.degrees(pca_angle)
     j7_deg = math.degrees(current_j7)
     
-    # Target: J7 should match PCA angle (so gripper is perpendicular to object)
-    # When J7 = PCA, the gripper crosses the object's long axis at 90°
-    # Note: This is a simplification; exact mapping depends on arm pose
+    # Target: gripper perpendicular to object's long axis
+    # PCA gives the long axis angle; we want J7 at PCA + 90°
+    target = pca_angle + math.pi / 2
     
-    # Simple approach: drive J7 toward PCA angle
-    # (The perpendicular is handled by the coordinate frame convention)
-    error = pca_angle - current_j7
+    # Normalize target to [-pi, pi]
+    while target > math.pi:
+        target -= 2 * math.pi
+    while target < -math.pi:
+        target += 2 * math.pi
+    
+    # Error: how far J7 is from target
+    error = target - current_j7
     
     # Normalize error to [-pi, pi]
     while error > math.pi:
@@ -372,6 +377,13 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     while error < -math.pi:
         error += 2 * math.pi
     
+    # Check if the opposite perpendicular (target - 180°) is closer
+    # Both are valid grasp orientations
+    error_alt = error - math.pi if error > 0 else error + math.pi
+    if abs(error_alt) < abs(error):
+        error = error_alt
+    
+    target_deg = math.degrees(target)
     error_deg = math.degrees(error)
     
     # Apply gain
@@ -379,13 +391,13 @@ def compute_j7_correction(detection, current_j7: float) -> tuple:
     
     # Deadband
     if abs(correction) < J7_MIN_CORRECTION_RAD:
-        return 0.0, f"pca={pca_deg:.0f}° j7={j7_deg:.0f}° err={error_deg:.0f}° (deadband)"
+        return 0.0, f"pca={pca_deg:.0f}° tgt={target_deg:.0f}° j7={j7_deg:.0f}° err={error_deg:.0f}° (deadband)"
     
     # Clamp max correction per step
     correction = max(-J7_MAX_CORRECTION_RAD, min(J7_MAX_CORRECTION_RAD, correction))
     
     corr_deg = math.degrees(correction)
-    return correction, f"pca={pca_deg:.0f}° j7={j7_deg:.0f}° err={error_deg:.0f}° corr={corr_deg:+.0f}°"
+    return correction, f"pca={pca_deg:.0f}° tgt={target_deg:.0f}° j7={j7_deg:.0f}° err={error_deg:.0f}° corr={corr_deg:+.0f}°"
 
 
 def get_servo_target_pixel(image_shape, ee_z: float):
