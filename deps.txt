@@ -1,2 +1,1 @@
-robot_sdk
-numpy
+# No skill dependencies (uses robot_sdk directly)
