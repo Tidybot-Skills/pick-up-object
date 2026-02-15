@@ -660,11 +660,6 @@ def pick_up_object(target: str = TARGET_OBJECT):
     arm.go_home()
     time.sleep(0.5)
 
-    # Phase 5: Release
-    print("\nPhase 5: Opening gripper...")
-    gripper.open()
-    time.sleep(0.5)
-
     if grasped:
         print(f"\n=== Successfully picked '{target}'! ===")
         display.show_face("excited")
